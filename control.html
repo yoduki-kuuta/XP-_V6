@@ -146,8 +146,9 @@ select { flex: 1; cursor: pointer; }
 
   <div class="section-title">勝敗・ランプ判定（1セット戦績）</div>
   <div class="row">
-    <button class="btn btn-win" onclick="addResult('win')">〇 勝（WIN）</button>
+    <!-- ★ 負け（左）と 勝ち（右）の位置を入れ替え -->
     <button class="btn btn-loss" onclick="addResult('loss')">✖ 負（LOSE）</button>
+    <button class="btn btn-win" onclick="addResult('win')">〇 勝（WIN）</button>
     <button class="btn btn-undo" onclick="undoResult()">1つ消去</button>
   </div>
   
