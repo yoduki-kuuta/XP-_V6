@@ -129,12 +129,14 @@ select { flex: 1; cursor: pointer; }
   </div>
 
   <div class="section-title">XP操作（自動切替: 2500未満は25 / 2500以上は15）</div>
+  <!-- ★ 減算（左）と 加算（右）の位置を入れ替え -->
   <div class="row">
-    <button class="btn btn-add" id="btnAdd" onclick="handleAutoXP(1)">+ 25増</button>
     <button class="btn btn-sub" id="btnSub" onclick="handleAutoXP(-1)">- 25減</button>
+    <button class="btn btn-add" id="btnAdd" onclick="handleAutoXP(1)">+ 25増</button>
   </div>
 
   <div class="section-title">XP直接入力 / 1づつ調整 / 計測中フタカバー</div>
+  <!-- ★ -1（左）と +1（右）の位置を調整 -->
   <div class="direct-input-container">
     <button class="btn-step" onclick="updateXP(-1)">-1</button>
     <input type="text" id="directInput" class="direct-input" value="2000" onchange="setDirectXP(this.value)">
