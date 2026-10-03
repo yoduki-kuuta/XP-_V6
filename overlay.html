@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Splatoon XP Counter Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@1,700&family=M+PLUS+Rounded+1c:wght@900&family=Montserrat:ital,wght@1,900&family=Noto+Serif+JP:wght@900&family=Orbitron:wght@900&family=Russo+One&family=Shippori+Mincho:wght@800&family=Zen+Old+Mincho:wght@900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background-color: transparent !important; overflow: hidden; }
+
+/* 全体サイズ 1500 x 650 */
+.main-container {
+  width: 1500px; height: 650px; position: relative;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  overflow: hidden; padding: 10px 20px; gap: 15px;
+}
+
+.bg-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; display: none; }
+
+/* XP数値表示ラップエリア */
+.xp-wrapper {
+  position: relative; z-index: 2; display: flex; align-items: center; justify-content: center;
+}
+
+/* --- 袋文字（ストローク）用スタイル --- */
+.stroke-text {
+  position: relative;
+  display: inline-block;
+  font-weight: 900;
+  white-space: nowrap;
+  line-height: 1;
+  letter-spacing: 2px;
+  font-family: 'Russo One', sans-serif;
+  color: #00ff66;
+  transform: skewX(-8deg);
+  transition: filter 0.2s ease;
+}
+
+.has-shadow { filter: drop-shadow(8px 8px 12px rgba(0,0,0,0.9)); }
+
+/* 背面に黒い太枠線を正確に合成 */
+.stroke-text::before {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  color: #000;
+  -webkit-text-stroke: 24px #000;
+  text-stroke: 24px #000;
+}
+
+/* 「計測中」フタカバー */
+.measuring-cover {
+  position: absolute;
+  top: -10px; left: -20px; right: -20px; bottom: -10px;
+  background: #111116 !important;
+  border: 6px solid #17a2b8; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #17a2b8; font-weight: 900;
+  transform: skewX(-8deg);
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  z-index: 10;
+  letter-spacing: 12px;
+  text-indent: 12px;
+  transition: box-shadow 0.2s ease;
+}
+
+.measuring-cover.has-shadow { box-shadow: 0 0 30px rgba(23, 162, 184, 0.6); }
+
+/* 戦績行表示エリア */
+.sub-row {
+  position: relative; z-index: 2; display: flex; align-items: center; gap: 40px;
+  transform: skewX(-8deg);
+}
+
+.record-text {
+  position: relative;
+  display: inline-block;
+  font-family: 'Russo One', sans-serif;
+  font-size: 80px;
+  font-weight: 900;
+  color: #ffffff;
+  white-space: nowrap;
+  line-height: 1;
+  transition: filter 0.2s ease;
+}
+
+.record-text.has-shadow { filter: drop-shadow(6px 6px 10px rgba(0,0,0,0.95)); }
+
+.record-text::before {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  color: #000;
+  -webkit-text-stroke: 16px #000;
+  text-stroke: 16px #000;
+}
+</style>
+</head>
+<body>
+<div class="main-container" id="mainContainer">
+  <img id="bgImage" class="bg-image" alt="Background">
+  
+  <div class="xp-wrapper">
+    <div class="stroke-text has-shadow" id="xpDisplay" data-text="XP 2000">XP 2000</div>
+    <div class="measuring-cover has-shadow" id="measuringCover" style="display: none;">計測中</div>
+  </div>
+  
+  <div class="sub-row" id="subRow">
+    <div class="record-text has-shadow" id="setRecordDisplay" data-text="1セット: 0勝0敗">1セット: 0勝0敗</div>
+    <div class="record-text has-shadow" id="totalRecordDisplay" data-text="累計: 0勝0敗">累計: 0勝0敗</div>
+  </div>
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const roomId = urlParams.get('id') || 'default';
+const storageKey = `splat_xp_data_${roomId}`;
+const channelName = `splat_xp_bc_${roomId}`;
+
+function setStrokeText(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.innerText = text;
+  el.setAttribute('data-text', text);
+}
+
+function adjustFontSize(showMainRecord) {
+  const container = document.getElementById('mainContainer');
+  const text = document.getElementById('xpDisplay');
+  const cover = document.getElementById('measuringCover');
+  if (!container || !text) return;
+
+  const maxWidth = container.clientWidth - 40;
+  let fontSize = showMainRecord ? 230 : 280;
+  text.style.fontSize = fontSize + 'px';
+  while (text.offsetWidth > maxWidth && fontSize > 10) {
+    fontSize -= 2;
+    text.style.fontSize = fontSize + 'px';
+  }
+  if (cover) cover.style.fontSize = (fontSize * 0.65) + 'px';
+}
+
+function applyState(data) {
+  if (!data) return;
+  
+  const ruleKey = data.currentRule || 'area';
+  let xpVal = 2000;
+  if (data.rules && data.rules[ruleKey] !== undefined) {
+    xpVal = data.rules[ruleKey];
+  } else if (data.xp !== undefined) {
+    xpVal = data.xp;
+  }
+
+  setStrokeText('xpDisplay', `XP ${xpVal}`);
+
+  // 計測中フタカバー表示制御 ＆ 後ろのXP文字隠し
+  const cover = document.getElementById('measuringCover');
+  const xpDisplay = document.getElementById('xpDisplay');
+  if (data.isMeasuring) {
+    cover.style.display = 'flex';
+    xpDisplay.style.visibility = 'hidden';
+  } else {
+    cover.style.display = 'none';
+    xpDisplay.style.visibility = 'visible';
+  }
+
+  // ドロップシャドウON/OFF
+  const enableShadow = data.showDropShadow !== false;
+  ['xpDisplay', 'measuringCover', 'setRecordDisplay', 'totalRecordDisplay'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (enableShadow) el.classList.add('has-shadow');
+      else el.classList.remove('has-shadow');
+    }
+  });
+
+  if(data.font) {
+    document.getElementById('xpDisplay').style.fontFamily = data.font;
+    document.getElementById('setRecordDisplay').style.fontFamily = data.font;
+    document.getElementById('totalRecordDisplay').style.fontFamily = data.font;
+  }
+  if(data.color) document.getElementById('xpDisplay').style.color = data.color;
+
+  // ★ 1セット色と累計色のリアルタイム同期設定
+  const setRecordEl = document.getElementById('setRecordDisplay');
+  const totalRecordEl = document.getElementById('totalRecordDisplay');
+  if (setRecordEl) setRecordEl.style.color = data.setRecordColor || '#00b0ff';
+  if (totalRecordEl) totalRecordEl.style.color = data.totalRecordColor || '#ffffff';
+
+  const img = document.getElementById('bgImage');
+  if (data.bgData) {
+    img.src = data.bgData;
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+    img.src = '';
+  }
+
+  // 戦績行表示制御
+  const showMainRecord = data.showMainRecord !== false;
+  const subRow = document.getElementById('subRow');
+  if (showMainRecord) {
+    subRow.style.display = 'flex';
+    
+    // 1セット戦績表示
+    const winCount = data.winLamps || 0;
+    const lossCount = data.lossLamps || 0;
+    setStrokeText('setRecordDisplay', `1セット: ${winCount}勝${lossCount}敗`);
+    setRecordEl.style.display = (data.showSetRecord !== false) ? 'inline-block' : 'none';
+
+    // 総合戦績表示
+    const wins = data.wins || 0;
+    const losses = data.losses || 0;
+    setStrokeText('totalRecordDisplay', `累計: ${wins}勝${losses}敗`);
+    totalRecordEl.style.display = (data.showTotalRecord !== false) ? 'inline-block' : 'none';
+  } else {
+    subRow.style.display = 'none';
+  }
+
+  adjustFontSize(showMainRecord);
+}
+
+function loadState() {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) {
+    try { applyState(JSON.parse(saved)); } catch(e){}
+  }
+}
+
+loadState();
+
+try {
+  const bc = new BroadcastChannel(channelName);
+  bc.onmessage = (e) => applyState(e.data);
+} catch(e){}
+
+window.addEventListener('storage', (e) => {
+  if (e.key === storageKey && e.newValue) {
+    try { applyState(JSON.parse(e.newValue)); } catch(err){}
+  }
+});
+
+setInterval(loadState, 1000);
+document.fonts.ready.then(loadState);
+</script>
+</body>
+</html>

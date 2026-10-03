@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>XP Counter Controller</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+body { background: #1e1e24; color: #fff; padding: 12px; }
+.panel { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+label { font-size: 12px; color: #aaa; width: 80px; }
+select, input[type="color"] {
+  padding: 6px 8px; font-size: 13px; border-radius: 4px;
+  border: 1px solid #444; background: #2b2b36; color: #fff; outline: none;
+}
+select { flex: 1; cursor: pointer; }
+
+/* ルール切替タブ */
+.rule-tabs { display: flex; gap: 4px; margin-bottom: 2px; }
+.rule-tab {
+  flex: 1; padding: 8px 4px; font-size: 12px; font-weight: bold; border: 1px solid #444;
+  border-radius: 6px; background: #2a2a35; color: #aaa; cursor: pointer; text-align: center;
+}
+.rule-tab.active { background: #007bff; color: #fff; border-color: #0056b3; }
+
+.btn {
+  padding: 10px; font-size: 14px; font-weight: bold; border-radius: 6px;
+  border: none; cursor: pointer; color: white; transition: transform 0.1s;
+}
+.btn:active { transform: scale(0.95); }
+.btn-add { background-color: #28a745; flex: 1; }
+.btn-sub { background-color: #dc3545; flex: 1; }
+.btn-win { background-color: #00b0ff; flex: 1; }
+.btn-loss { background-color: #ff3d00; flex: 1; }
+.btn-undo { background-color: #666; width: 75px; }
+
+.direct-input-container { display: flex; align-items: center; gap: 6px; width: 100%; margin: 4px 0; }
+.direct-input {
+  flex: 1; font-size: 24px; font-weight: bold; text-align: center; padding: 8px;
+  border-radius: 6px; border: 2px solid #00b0ff; background: #111116; color: #fff; outline: none;
+}
+.btn-step {
+  width: 50px; height: 48px; font-size: 22px; font-weight: bold; border-radius: 6px;
+  border: none; background: #3a3a4c; color: #fff; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+}
+.btn-step:active { background: #555; transform: scale(0.95); }
+
+.btn-measuring {
+  padding: 10px 14px; font-size: 13px; font-weight: bold; border-radius: 6px;
+  border: 1px solid #17a2b8; background-color: #2b2b36; color: #17a2b8; cursor: pointer; white-space: nowrap;
+}
+.btn-measuring.active { background-color: #17a2b8; color: #fff; }
+
+.btn-reset-lamp { background-color: #fd7e14; flex: 1; padding: 10px; font-size: 12px; }
+.btn-reset-record { background-color: #c82333; flex: 1; padding: 10px; font-size: 12px; }
+
+.file-btn { font-size: 11px; flex: 1; }
+.clear-btn { background: #555; color: #ccc; padding: 4px 8px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; }
+
+.section-title { font-size: 11px; color: #888; border-bottom: 1px solid #333; padding-bottom: 2px; margin-top: 4px; }
+
+.url-box {
+  background: #111116; border: 1px solid #333; padding: 8px; border-radius: 6px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.url-box span { font-size: 11px; color: #00ff66; font-weight: bold; }
+.url-input-group { display: flex; gap: 6px; align-items: center; }
+.url-input-group label { font-size: 11px; width: 60px; color: #ccc; }
+.url-input-group input {
+  flex: 1; font-size: 11px; padding: 4px 6px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px;
+}
+.copy-btn {
+  background: #007bff; color: #fff; border: none; padding: 4px 10px; font-size: 11px; font-weight: bold;
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+.status { font-size: 10px; color: #00ff66; text-align: right; }
+
+.lamp-preview { display: flex; flex-direction: column; gap: 6px; background: #111116; padding: 8px 10px; border-radius: 6px; }
+.lamp-row { display: flex; gap: 6px; align-items: center; }
+.lamp-row-label { font-size: 11px; color: #aaa; width: 35px; }
+
+.lamp-dot-win { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
+.lamp-dot-win.win { border-color: #00ff66; color: #00ff66; background: rgba(0,255,102,0.2); }
+
+.lamp-dot-loss { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; }
+.lamp-dot-loss.loss-on { border-color: #ff9900; background: #ff9900; box-shadow: 0 0 6px #ff9900; }
+.lamp-dot-loss.loss-off { border-color: #ff3366; color: #ff3366; background: rgba(255,51,102,0.1); }
+
+.record-text { margin-left: auto; font-size: 13px; font-weight: bold; color: #ffd700; }
+
+.checkbox-label { font-size: 13px; color: #fff; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.checkbox-label input { width: 16px; height: 16px; cursor: pointer; }
+
+/* レンジスライダー見栄え */
+.range-container { flex: 1; display: flex; align-items: center; gap: 8px; }
+.range-container input[type="range"] { flex: 1; }
+.range-val { font-size: 12px; color: #00b0ff; font-weight: bold; width: 35px; text-align: right; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="url-box">
+    <span>▼ OBSブラウザソース用URL</span>
+    <div class="url-input-group">
+      <label>XPメイン:</label>
+      <input type="text" id="overlayUrlInput" readonly>
+      <button class="copy-btn" onclick="copyUrl('overlayUrlInput')">コピー</button>
+    </div>
+    <div class="url-input-group">
+      <label>ランプ:</label>
+      <input type="text" id="lampUrlInput" readonly>
+      <button class="copy-btn" onclick="copyUrl('lampUrlInput')">コピー</button>
+    </div>
+    <div class="url-input-group">
+      <label>分離戦績:</label>
+      <input type="text" id="recordUrlInput" readonly>
+      <button class="copy-btn" onclick="copyUrl('recordUrlInput')">コピー</button>
+    </div>
+    <div class="status">通信機能: 正常</div>
+  </div>
+
+  <div class="section-title">ルール選択（数値を個別保持）</div>
+  <div class="rule-tabs">
+    <button class="rule-tab active" id="tab-area" onclick="selectRule('area')">エリア</button>
+    <button class="rule-tab" id="tab-yagura" onclick="selectRule('yagura')">ヤグラ</button>
+    <button class="rule-tab" id="tab-hoko" onclick="selectRule('hoko')">ホコ</button>
+    <button class="rule-tab" id="tab-asari" onclick="selectRule('asari')">アサリ</button>
+  </div>
+
+  <div class="section-title">XP操作（自動切替: 2500未満は25 / 2500以上は15）</div>
+  <div class="row">
+    <button class="btn btn-add" id="btnAdd" onclick="handleAutoXP(1)">+ 25増</button>
+    <button class="btn btn-sub" id="btnSub" onclick="handleAutoXP(-1)">- 25減</button>
+  </div>
+
+  <div class="section-title">XP直接入力 / 1づつ調整 / 計測中フタカバー</div>
+  <div class="direct-input-container">
+    <button class="btn-step" onclick="updateXP(-1)">-1</button>
+    <input type="text" id="directInput" class="direct-input" value="2000" onchange="setDirectXP(this.value)">
+    <button class="btn-step" onclick="updateXP(1)">+1</button>
+    <button class="btn-measuring" id="btnMeasuring" onclick="toggleMeasuring()">計測中表示</button>
+  </div>
+
+  <div class="section-title">勝敗・ランプ判定（1セット戦績）</div>
+  <div class="row">
+    <button class="btn btn-win" onclick="addResult('win')">〇 勝（WIN）</button>
+    <button class="btn btn-loss" onclick="addResult('loss')">✖ 負（LOSE）</button>
+    <button class="btn btn-undo" onclick="undoResult()">1つ消去</button>
+  </div>
+  
+  <div class="lamp-preview">
+    <div class="lamp-row">
+      <span class="lamp-row-label">勝ち:</span>
+      <div class="lamp-dot-win" id="winDot0"></div>
+      <div class="lamp-dot-win" id="winDot1"></div>
+      <div class="lamp-dot-win" id="winDot2"></div>
+      <div class="record-text" id="recordText">0勝0敗</div>
+    </div>
+    <div class="lamp-row">
+      <span class="lamp-row-label">負け:</span>
+      <div class="lamp-dot-loss" id="lossDot0"></div>
+      <div class="lamp-dot-loss" id="lossDot1"></div>
+      <div class="lamp-dot-loss" id="lossDot2"></div>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 2px;">
+    <button class="btn btn-reset-lamp" onclick="clearLamps()">🧹 ランプ全消去</button>
+    <button class="btn btn-reset-record" onclick="resetRecord()">⚠️ 戦績完全リセット</button>
+  </div>
+
+  <div class="section-title">表示設定</div>
+  <div class="row">
+    <label class="checkbox-label" style="width: 100%; color: #00b0ff; font-weight: bold;">
+      <input type="checkbox" id="showMainRecordToggle" onchange="toggleShowMainRecord(this.checked)">
+      overlay.html（メイン画面）にも戦績を表示する
+    </label>
+  </div>
+  <div class="row">
+    <label class="checkbox-label" style="width: 100%;">
+      <input type="checkbox" id="showSetRecordToggle" onchange="toggleShowSetRecord(this.checked)">
+      1セット戦績（〇勝〇敗）を表示項目に含める
+    </label>
+  </div>
+  <div class="row">
+    <label class="checkbox-label" style="width: 100%;">
+      <input type="checkbox" id="showTotalRecordToggle" onchange="toggleShowTotalRecord(this.checked)">
+      総合戦績（累計〇勝〇敗）を表示項目に含める
+    </label>
+  </div>
+
+  <div class="section-title">分離戦績画面（record_overlay.html）設定</div>
+  <div class="row">
+    <label>配置方向:</label>
+    <select id="recordOrientationSelect" onchange="changeRecordOrientation(this.value)">
+      <option value="horizontal">横並び (1セット 累計)</option>
+      <option value="vertical">縦並び (上が1セット/下が累計)</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>文字サイズ:</label>
+    <div class="range-container">
+      <input type="range" id="recordFontSizeRange" min="30" max="150" value="70" oninput="changeRecordFontSize(this.value)">
+      <span class="range-val" id="recordFontSizeVal">70px</span>
+    </div>
+  </div>
+  <div class="row">
+    <label>1セット色:</label>
+    <input type="color" id="setRecordColorPicker" value="#00b0ff" onchange="changeSetRecordColor(this.value)">
+    <label style="margin-left: 15px; width: 50px;">累計色:</label>
+    <input type="color" id="totalRecordColorPicker" value="#ffffff" onchange="changeTotalRecordColor(this.value)">
+  </div>
+
+  <div class="section-title">全体デザイン設定</div>
+  <div class="row">
+    <label class="checkbox-label" style="width: 100%;">
+      <input type="checkbox" id="showDropShadowToggle" onchange="toggleShowDropShadow(this.checked)">
+      ドロップシャドウ（影）を表示する
+    </label>
+  </div>
+  <div class="row">
+    <label>フォント:</label>
+    <select id="fontSelect" onchange="changeFont(this.value)">
+      <option value="'Russo One', sans-serif">Russo One</option>
+      <option value="'M PLUS Rounded 1c', sans-serif">M PLUS Rounded</option>
+      <option value="'Chakra Petch', sans-serif">Chakra Petch</option>
+      <option value="'Montserrat', sans-serif">Montserrat</option>
+      <option value="'Orbitron', sans-serif">Orbitron</option>
+      <option value="'Noto Serif JP', serif">明朝1 (Noto Serif)</option>
+      <option value="'Zen Old Mincho', serif">明朝2 (Zen Old Mincho)</option>
+      <option value="'Shippori Mincho', serif">明朝3 (Shippori Mincho)</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>XP文字色:</label>
+    <input type="color" id="colorPicker" value="#00ff66" onchange="changeColor(this.value)">
+  </div>
+  <div class="row">
+    <label>背景PNG:</label>
+    <input type="file" id="imageLoader" accept="image/png" class="file-btn">
+    <button class="clear-btn" onclick="clearBG()">削除</button>
+  </div>
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+let roomId = urlParams.get('id');
+
+if (!roomId) {
+  roomId = localStorage.getItem('splat_xp_my_room_id');
+  if (!roomId) {
+    roomId = Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('splat_xp_my_room_id', roomId);
+  }
+  const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?id=' + roomId;
+  window.history.replaceState({path: newUrl}, '', newUrl);
+} else {
+  localStorage.setItem('splat_xp_my_room_id', roomId);
+}
+
+const overlayUrl = `${window.location.origin}${window.location.pathname.replace('control.html', 'overlay.html')}?id=${roomId}`;
+const lampUrl = `${window.location.origin}${window.location.pathname.replace('control.html', 'lamp_overlay.html')}?id=${roomId}`;
+const recordUrl = `${window.location.origin}${window.location.pathname.replace('control.html', 'record_overlay.html')}?id=${roomId}`;
+
+document.getElementById('overlayUrlInput').value = overlayUrl;
+document.getElementById('lampUrlInput').value = lampUrl;
+document.getElementById('recordUrlInput').value = recordUrl;
+
+function copyUrl(inputId) {
+  const input = document.getElementById(inputId);
+  input.select();
+  navigator.clipboard.writeText(input.value);
+  alert('URLをコピーしました！OBSのブラウザソースに貼り付けてください。');
+}
+
+const storageKey = `splat_xp_data_${roomId}`;
+const channelName = `splat_xp_bc_${roomId}`;
+let bc = null;
+try { bc = new BroadcastChannel(channelName); } catch(e) {}
+
+let state = {
+  currentRule: 'area',
+  rules: { area: 2000, yagura: 2000, hoko: 2000, asari: 2000 },
+  isMeasuring: false,
+  showMainRecord: true,
+  showSetRecord: true,
+  showTotalRecord: true,
+  showDropShadow: true,
+  font: "'Russo One', sans-serif",
+  color: "#00ff66",
+  recordOrientation: "horizontal",
+  recordFontSize: 70,
+  setRecordColor: "#00b0ff",
+  totalRecordColor: "#ffffff",
+  bgData: "",
+  winLamps: 0,
+  lossLamps: 0,
+  wins: 0,
+  losses: 0,
+  _ts: Date.now()
+};
+
+function renderUI() {
+  const rules = ['area', 'yagura', 'hoko', 'asari'];
+  rules.forEach(r => {
+    const tabBtn = document.getElementById(`tab-${r}`);
+    if (tabBtn) {
+      if (r === state.currentRule) tabBtn.classList.add('active');
+      else tabBtn.classList.remove('active');
+    }
+  });
+
+  const currentVal = (state.rules && state.rules[state.currentRule] !== undefined) ? state.rules[state.currentRule] : 2000;
+  document.getElementById('directInput').value = currentVal;
+
+  const numVal = parseFloat(currentVal);
+  const step = (!isNaN(numVal) && numVal >= 2500) ? 15 : 25;
+  document.getElementById('btnAdd').innerText = `+ ${step}増`;
+  document.getElementById('btnSub').innerText = `- ${step}減`;
+
+  const btnMeas = document.getElementById('btnMeasuring');
+  if (state.isMeasuring) btnMeas.classList.add('active');
+  else btnMeas.classList.remove('active');
+
+  document.getElementById('showMainRecordToggle').checked = state.showMainRecord !== false;
+  document.getElementById('showSetRecordToggle').checked = state.showSetRecord !== false;
+  document.getElementById('showTotalRecordToggle').checked = state.showTotalRecord !== false;
+  document.getElementById('showDropShadowToggle').checked = state.showDropShadow !== false;
+
+  document.getElementById('recordOrientationSelect').value = state.recordOrientation || 'horizontal';
+  document.getElementById('recordFontSizeRange').value = state.recordFontSize || 70;
+  document.getElementById('recordFontSizeVal').innerText = `${state.recordFontSize || 70}px`;
+  document.getElementById('setRecordColorPicker').value = state.setRecordColor || '#00b0ff';
+  document.getElementById('totalRecordColorPicker').value = state.totalRecordColor || '#ffffff';
+
+  if(state.font) document.getElementById('fontSelect').value = state.font;
+  if(state.color) document.getElementById('colorPicker').value = state.color;
+
+  const winCount = state.winLamps || 0;
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById(`winDot${i}`);
+    dot.className = 'lamp-dot-win';
+    dot.innerText = '';
+    if (i < winCount) { dot.classList.add('win'); dot.innerText = '〇'; }
+  }
+
+  const lossCount = state.lossLamps || 0;
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById(`lossDot${i}`);
+    dot.className = 'lamp-dot-loss';
+    if (i < lossCount) { dot.classList.add('loss-off'); dot.innerText = '✖'; }
+    else { dot.classList.add('loss-on'); dot.innerText = ''; }
+  }
+
+  document.getElementById('recordText').innerText = `1セット: ${winCount}勝${lossCount}敗 | 累計: ${state.wins || 0}勝${state.losses || 0}敗`;
+}
+
+function saveAndSendState() {
+  state._ts = Date.now();
+  localStorage.setItem(storageKey, JSON.stringify(state));
+  if (bc) { try { bc.postMessage(state); } catch(e){} }
+  renderUI();
+}
+
+function loadSavedState() {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      state = { ...state, ...parsed };
+      if (!state.rules) state.rules = { area: parsed.xp || 2000, yagura: 2000, hoko: 2000, asari: 2000 };
+      if (!state.currentRule) state.currentRule = 'area';
+      if (state.showMainRecord === undefined) state.showMainRecord = true;
+      if (state.showSetRecord === undefined) state.showSetRecord = true;
+      if (state.showTotalRecord === undefined) state.showTotalRecord = true;
+      if (state.showDropShadow === undefined) state.showDropShadow = true;
+      if (state.isMeasuring === undefined) state.isMeasuring = false;
+      if (!state.recordOrientation) state.recordOrientation = 'horizontal';
+      if (!state.recordFontSize) state.recordFontSize = 70;
+      if (!state.setRecordColor) state.setRecordColor = '#00b0ff';
+      if (!state.totalRecordColor) state.totalRecordColor = '#ffffff';
+    } catch(e) {}
+  }
+  saveAndSendState();
+}
+
+function selectRule(rule) { state.currentRule = rule; saveAndSendState(); }
+
+function handleAutoXP(direction) {
+  if (!state.rules) state.rules = { area: 2000, yagura: 2000, hoko: 2000, asari: 2000 };
+  let current = parseFloat(state.rules[state.currentRule]);
+  if (isNaN(current)) current = 2000;
+  const step = (current >= 2500) ? 15 : 25;
+  state.rules[state.currentRule] = current + (step * direction);
+  saveAndSendState();
+}
+
+function updateXP(val) {
+  if (!state.rules) state.rules = { area: 2000, yagura: 2000, hoko: 2000, asari: 2000 };
+  let current = parseFloat(state.rules[state.currentRule]);
+  if (isNaN(current)) current = 2000;
+  state.rules[state.currentRule] = current + val;
+  saveAndSendState();
+}
+
+function setDirectXP(val) {
+  if (!state.rules) state.rules = { area: 2000, yagura: 2000, hoko: 2000, asari: 2000 };
+  const num = parseFloat(val);
+  state.rules[state.currentRule] = isNaN(num) ? 2000 : num;
+  saveAndSendState();
+}
+
+function toggleMeasuring() { state.isMeasuring = !state.isMeasuring; saveAndSendState(); }
+function toggleShowMainRecord(show) { state.showMainRecord = show; saveAndSendState(); }
+function toggleShowSetRecord(show) { state.showSetRecord = show; saveAndSendState(); }
+function toggleShowTotalRecord(show) { state.showTotalRecord = show; saveAndSendState(); }
+function toggleShowDropShadow(show) { state.showDropShadow = show; saveAndSendState(); }
+
+function changeRecordOrientation(val) { state.recordOrientation = val; saveAndSendState(); }
+function changeRecordFontSize(val) { state.recordFontSize = parseInt(val, 10); saveAndSendState(); }
+function changeSetRecordColor(val) { state.setRecordColor = val; saveAndSendState(); }
+function changeTotalRecordColor(val) { state.totalRecordColor = val; saveAndSendState(); }
+
+function addResult(type) {
+  if (type === 'win') {
+    state.wins = (state.wins || 0) + 1;
+    if (state.winLamps < 3) state.winLamps = (state.winLamps || 0) + 1;
+  } else if (type === 'loss') {
+    state.losses = (state.losses || 0) + 1;
+    if (state.lossLamps < 3) state.lossLamps = (state.lossLamps || 0) + 1;
+  }
+
+  saveAndSendState();
+
+  setTimeout(() => {
+    if (state.winLamps >= 3 || state.lossLamps >= 3) {
+      if (confirm(`${state.winLamps >= 3 ? '勝ち' : '負け'}ランプが3つ付きました！ランプ（1セット戦績）をリセットしますか？`)) {
+        clearLamps();
+      }
+    }
+  }, 100);
+}
+
+function undoResult() {
+  if (state.winLamps > 0) { state.winLamps--; if (state.wins > 0) state.wins--; }
+  else if (state.lossLamps > 0) { state.lossLamps--; if (state.losses > 0) state.losses--; }
+  saveAndSendState();
+}
+
+function clearLamps() { state.winLamps = 0; state.lossLamps = 0; saveAndSendState(); }
+
+function resetRecord() {
+  if (confirm('勝敗ランプと総合戦績（累計勝/敗数）をすべて初期化しますか？')) {
+    state.winLamps = 0; state.lossLamps = 0; state.wins = 0; state.losses = 0;
+    saveAndSendState();
+  }
+}
+
+function changeFont(font) { state.font = font; saveAndSendState(); }
+function changeColor(color) { state.color = color; saveAndSendState(); }
+function clearBG() {
+  state.bgData = "";
+  document.getElementById('imageLoader').value = "";
+  saveAndSendState();
+}
+
+document.getElementById('imageLoader').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(event) { state.bgData = event.target.result; saveAndSendState(); };
+    reader.readAsDataURL(file);
+  }
+});
+
+window.onload = loadSavedState;
+</script>
+</body>
+</html>

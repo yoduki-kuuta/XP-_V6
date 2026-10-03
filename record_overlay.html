@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Splatoon Record Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@1,700&family=M+PLUS+Rounded+1c:wght@900&family=Montserrat:ital,wght@1,900&family=Noto+Serif+JP:wght@900&family=Orbitron:wght@900&family=Russo+One&family=Shippori+Mincho:wght@800&family=Zen+Old+Mincho:wght@900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background-color: transparent !important; overflow: hidden; }
+
+.record-container {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 30px;
+  transform: skewX(-8deg); padding: 10px;
+}
+
+/* 縦並びレイアウト用クラス */
+.record-container.vertical {
+  flex-direction: column;
+  gap: 15px;
+}
+
+.record-text {
+  position: relative; display: inline-block;
+  font-family: 'Russo One', sans-serif; font-size: 70px; font-weight: 900;
+  color: #ffffff; white-space: nowrap; line-height: 1; transition: filter 0.2s ease;
+}
+
+.record-text.has-shadow { filter: drop-shadow(6px 6px 10px rgba(0,0,0,0.95)); }
+
+.record-text::before {
+  content: attr(data-text); position: absolute; top: 0; left: 0; z-index: -1;
+  color: #000; -webkit-text-stroke: 0.23em #000; text-stroke: 0.23em #000;
+}
+</style>
+</head>
+<body>
+<div class="record-container" id="recordContainer">
+  <div class="record-text has-shadow" id="setRecordDisplay" data-text="1セット: 0勝0敗">1セット: 0勝0敗</div>
+  <div class="record-text has-shadow" id="totalRecordDisplay" data-text="累計: 0勝0敗">累計: 0勝0敗</div>
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const roomId = urlParams.get('id') || 'default';
+const storageKey = `splat_xp_data_${roomId}`;
+const channelName = `splat_xp_bc_${roomId}`;
+
+function setStrokeText(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.innerText = text;
+  el.setAttribute('data-text', text);
+}
+
+function applyState(data) {
+  if (!data) return;
+
+  const container = document.getElementById('recordContainer');
+  const setEl = document.getElementById('setRecordDisplay');
+  const totalEl = document.getElementById('totalRecordDisplay');
+
+  // 縦 / 横レイアウト切り替え
+  if (data.recordOrientation === 'vertical') {
+    container.classList.add('vertical');
+  } else {
+    container.classList.remove('vertical');
+  }
+
+  // 文字サイズ適用
+  const fontSize = data.recordFontSize || 70;
+  setEl.style.fontSize = `${fontSize}px`;
+  totalEl.style.fontSize = `${fontSize}px`;
+
+  // ★ 1セットと累計で個別カラーを適用（未設定時はデフォルト値）
+  setEl.style.color = data.setRecordColor || '#00b0ff';
+  totalEl.style.color = data.totalRecordColor || '#ffffff';
+
+  // ドロップシャドウ
+  const enableShadow = data.showDropShadow !== false;
+  [setEl, totalEl].forEach(el => {
+    if (el) {
+      if (enableShadow) el.classList.add('has-shadow');
+      else el.classList.remove('has-shadow');
+    }
+  });
+
+  // フォント指定
+  if (data.font) {
+    setEl.style.fontFamily = data.font;
+    totalEl.style.fontFamily = data.font;
+  }
+
+  // 1セット戦績
+  const winCount = data.winLamps || 0;
+  const lossCount = data.lossLamps || 0;
+  setStrokeText('setRecordDisplay', `1セット: ${winCount}勝${lossCount}敗`);
+  setEl.style.display = (data.showSetRecord !== false) ? 'inline-block' : 'none';
+
+  // 累計戦績
+  const wins = data.wins || 0;
+  const losses = data.losses || 0;
+  setStrokeText('totalRecordDisplay', `累計: ${wins}勝${losses}敗`);
+  totalEl.style.display = (data.showTotalRecord !== false) ? 'inline-block' : 'none';
+}
+
+function loadState() {
+  const saved = localStorage.getItem(storageKey);
+  if (saved) { try { applyState(JSON.parse(saved)); } catch(e){} }
+}
+
+loadState();
+
+try {
+  const bc = new BroadcastChannel(channelName);
+  bc.onmessage = (e) => applyState(e.data);
+} catch(e){}
+
+window.addEventListener('storage', (e) => {
+  if (e.key === storageKey && e.newValue) {
+    try { applyState(JSON.parse(e.newValue)); } catch(err){}
+  }
+});
+
+setInterval(loadState, 1000);
+</script>
+</body>
+</html>
